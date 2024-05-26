@@ -1,4 +1,6 @@
 __pycache__
-data/
-checkpoints/
+!checkpoints/
+!data/
 .ipynb_checkpoints
+checkpoints/*
+data/*
