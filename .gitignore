@@ -1,5 +1,6 @@
 __pycache__
-!.gitkeep
 .ipynb_checkpoints
 checkpoints/*
 data/*
+
+!.gitkeep
