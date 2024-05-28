@@ -1,5 +1,12 @@
+import os
+from typing import Optional
+
 import torch
 import torch.nn as nn
+
+import matplotlib.pyplot as plt
+import torchvision.transforms.functional as TF
+from torchvision import transforms
 
 
 class PatchEmbedding(nn.Module):
@@ -299,3 +306,77 @@ class VisionTransformer(nn.Module):
         X = self.fc(X)
 
         return X
+
+    def plot_attention_maps(self, X: torch.Tensor, save_path: str, transform: Optional[transforms.Compose] = None, interpolation: Optional[str] = None) -> None:
+        """
+        Plot the original images along with attention maps for each layer in the Vision Transformer.
+
+        Args:
+            X (torch.Tensor): Batch of input images of shape (batch_size, channels, height, width).
+            save_path (str): Path to save the images.
+            transform (Optional[torchvision.transforms.Compose]): A torchvision.transforms.Compose object for transforming the input images. Default is None.
+            interpolation (Optional[str]): Interpolation method for displaying attention maps. Default is None.
+        """
+        assert self.embedding_size % self.num_heads == 0, f"Embedding size {
+            self.embedding_size} is not divisible by number of attention heads {self.num_heads}."
+        assert self.img_size % self.patch_size == 0, f"Image size {
+            self.img_size} is not divisible by patch size {self.patch_size}."
+
+        # Extract mean and std from transforms.Normalize
+        mean, std = None, None
+        if transform is not None:
+            for t in transform.transforms:
+                if isinstance(t, transforms.Normalize):
+                    mean = torch.tensor(t.mean).unsqueeze(
+                        1).unsqueeze(2).to(X.device)
+                    std = torch.tensor(t.std).unsqueeze(
+                        1).unsqueeze(2).to(X.device)
+                    break
+
+        # Extract batch size and number of patches in one dimension
+        batch_size = X.size(0)
+        num_patches_x = self.img_size // self.patch_size
+
+        # Get the attention maps for the first class token only
+        attention_maps = [block.attention.attention_map[:, :, 0, 1:].reshape(
+            batch_size, -1, num_patches_x, num_patches_x) for block in self.transformer_blocks]
+
+        # Iterate over the attention layers
+        for layer_i, layer_attention in enumerate(attention_maps):
+            plt.figure(figsize=(self.num_heads * 2, batch_size * 2))
+            plt.suptitle(
+                f"Layer {len(self.transformer_blocks) - 1}", fontsize=16)
+
+            num_rows = batch_size
+            num_cols = self.num_heads + 1
+
+            # Plot the original images with labels
+            for batch_i, image in enumerate(X):
+                # Denormalize image for plotting
+                if mean is not None and std is not None:
+                    image = (image * std + mean).cpu().numpy()
+
+                plt.subplot(num_rows, num_cols, batch_i * num_cols + 1)
+                plt.imshow(image.transpose(1, 2, 0))
+                plt.title(f"Image {batch_i + 1}")
+                plt.axis('off')
+
+            # Plot attention maps for each head with labels
+            for head_i in range(self.num_heads):
+                for batch_i in range(batch_size):
+                    plt.subplot(num_rows, num_cols, batch_i *
+                                num_cols + head_i + 2)
+                    plt.imshow(layer_attention[batch_i, head_i].cpu().detach(
+                    ).numpy(), cmap='viridis', interpolation=interpolation)
+                    if batch_i == 0:  # Only label the first row
+                        plt.title(f"Head {head_i + 1}")
+                    plt.axis('off')
+
+            # Adjust layout to make room for the title
+            plt.tight_layout(rect=[0, 0, 1, 0.98])
+
+            # Save the image for the current layer
+            filename = f"layer_{layer_i + 1}_attention_maps.png"
+            save_file = os.path.join(save_path, filename)
+            plt.savefig(save_file)
+            plt.close()
