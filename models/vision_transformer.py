@@ -1,8 +1,5 @@
 import torch
 import torch.nn as nn
-import matplotlib.pyplot as plt
-import torchvision.transforms.functional as TF
-import os
 
 
 class PatchEmbedding(nn.Module):

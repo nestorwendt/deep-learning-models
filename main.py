@@ -51,12 +51,12 @@ if __name__ == "__main__":
 
     # Prepare the dataset
     train_dataset = datasets.ImageFolder(
-        root="../data/ILSVRC2012/imagenet/train", transform=transform)
+        root="data/ILSVRC2012/imagenet/train", transform=transform)
     train_dataloader = DataLoader(
         train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
 
     val_dataset = datasets.ImageFolder(
-        root="../data/ILSVRC2012/imagenet/val", transform=transform)
+        root="data/ILSVRC2012/imagenet/val", transform=transform)
     val_dataloader = DataLoader(
         val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
