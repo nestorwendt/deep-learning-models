@@ -1,21 +1,20 @@
-import torch
 import os
+import torch
 from torch import nn, optim
-from torch.utils.data import DataLoader
-from torchvision import transforms, datasets
 from tqdm import tqdm
 from datetime import datetime
 
 from models.vision_transformer import VisionTransformer
+from datasets import imagenet
 
-if __name__ == "__main__":
 
+def main():
     # Hyperparameters
     img_size = 224
-    patch_size = 16
-    num_classes = 1000
-    embedding_size = 768
-    num_heads = 12
+    patch_size = 32  # 16
+    num_classes = 10  # 1000
+    embedding_size = 144  # 768
+    num_heads = 6  # 12
     num_layers = 12
     mlp_ratio = 4
     in_channels = 3
@@ -39,26 +38,13 @@ if __name__ == "__main__":
         dropout=dropout,
     ).to(device)
 
-    # Define transformation pipeline for the dataset
-    transform = transforms.Compose(
-        [
-            transforms.Resize((img_size, img_size)),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[
-                                 0.229, 0.224, 0.225]),
-        ]
+    # Prepare dataloaders
+    train_dataloader, val_dataloader = imagenet.prepare_dataloaders(
+        img_size=img_size,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        data_root="data",
     )
-
-    # Prepare the dataset
-    train_dataset = datasets.ImageFolder(
-        root="data/ILSVRC2012/imagenet/train", transform=transform)
-    train_dataloader = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-
-    val_dataset = datasets.ImageFolder(
-        root="data/ILSVRC2012/imagenet/val", transform=transform)
-    val_dataloader = DataLoader(
-        val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
     # Define loss function and optimizer
     criterion = nn.CrossEntropyLoss()
@@ -73,8 +59,7 @@ if __name__ == "__main__":
         model.train()
         with tqdm(train_dataloader, unit="batch") as tepoch:
             for inputs, targets in tepoch:
-                tepoch.set_description(
-                    f"Training epoch {epoch + 1}/{num_epochs}")
+                tepoch.set_description(f"Training epoch {epoch + 1}/{num_epochs}")
 
                 inputs, targets = inputs.to(device), targets.to(device)
 
@@ -89,8 +74,7 @@ if __name__ == "__main__":
                 total += targets.size(0)
                 correct += predicted.eq(targets).sum().item()
 
-                tepoch.set_postfix(
-                    loss=loss.item(), accuracy=100. * correct / total)
+                tepoch.set_postfix(loss=loss.item(), accuracy=100.0 * correct / total)
 
         # Validation
         model.eval()
@@ -100,8 +84,7 @@ if __name__ == "__main__":
         with torch.no_grad():
             with tqdm(val_dataloader, unit="batch") as vepoch:
                 for inputs, targets in vepoch:
-                    vepoch.set_description(f"Validation epoch {
-                                           epoch + 1}/{num_epochs}")
+                    vepoch.set_description(f"Validation epoch {epoch + 1}/{num_epochs}")
 
                     inputs, targets = inputs.to(device), targets.to(device)
 
@@ -114,10 +97,16 @@ if __name__ == "__main__":
                     val_correct += predicted.eq(targets).sum().item()
 
                     vepoch.set_postfix(
-                        val_loss=loss.item(), val_accuracy=100. * val_correct / val_total)
+                        val_loss=loss.item(),
+                        val_accuracy=100.0 * val_correct / val_total,
+                    )
 
     # Save the model after training
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     model_path = os.path.join("checkpoints", f"{timestamp}.pth")
     os.makedirs("checkpoints", exist_ok=True)
-    torch.save(model, model_path)
+    torch.save(model.state_dict(), model_path)
+
+
+if __name__ == "__main__":
+    main()

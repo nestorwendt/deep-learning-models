@@ -1,3 +1,12 @@
+"""
+This module implements a Vision Transformer (ViT) in PyTorch, which includes:
+1. PatchEmbedding: Splits an image into patches and projects each patch into an embedding space.
+2. MultiHeadSelfAttention: Implements the multi-head self-attention mechanism.
+3. VisionTransformerBlock: Implements a single block of the Vision Transformer.
+4. VisionTransformer: Combines the above components into a complete Vision Transformer model.
+5. plot_attention_maps: Utility function to plot the attention maps of the Vision Transformer.
+"""
+
 import os
 from typing import Optional
 
@@ -5,7 +14,6 @@ import torch
 import torch.nn as nn
 
 import matplotlib.pyplot as plt
-import torchvision.transforms.functional as TF
 from torchvision import transforms
 
 
@@ -29,8 +37,9 @@ class PatchEmbedding(nn.Module):
     ) -> None:
         super(PatchEmbedding, self).__init__()
 
-        assert img_size % patch_size == 0, f"Image size {
-            img_size} is not divisible by patch size {patch_size}."
+        assert (
+            img_size % patch_size == 0
+        ), f"Image size {img_size} is not divisible by patch size {patch_size}."
 
         self.img_size = img_size
         self.patch_size = patch_size
@@ -56,16 +65,17 @@ class PatchEmbedding(nn.Module):
         """
         batch_size, channels, height, width = X.shape
 
-        assert height == width, f"Expected square image, but got height {
-            height} and width {width}."
+        assert (
+            height == width
+        ), f"Expected square image, but got height {height} and width {width}."
 
         # Apply convolution to create patch embeddings
-        # Output shape: (batch_size, embedding_size, height // patch_size, width // patch_size)
-        X = self.conv(X)
+        X = self.conv(
+            X
+        )  # (batch_size, embedding_size, height // patch_size, width // patch_size)
 
         # Flatten the height and width dimensions into a single dimension to create patch tokens
-        # Output shape: (batch_size, num_patches, embedding_size)
-        X = X.flatten(2).transpose(1, 2)
+        X = X.flatten(2).transpose(1, 2)  # (batch_size, num_patches, embedding_size)
 
         return X
 
@@ -80,11 +90,14 @@ class MultiHeadSelfAttention(nn.Module):
         dropout (float, optional): Dropout rate. Default is 0.0.
     """
 
-    def __init__(self, embedding_size: int, num_heads: int, dropout: float = 0.0) -> None:
+    def __init__(
+        self, embedding_size: int, num_heads: int, dropout: float = 0.0
+    ) -> None:
         super(MultiHeadSelfAttention, self).__init__()
 
-        assert embedding_size % num_heads == 0, f"Embedding size {
-            embedding_size} is not divisible by number of attention heads {num_heads}."
+        assert (
+            embedding_size % num_heads == 0
+        ), f"Embedding size {embedding_size} is not divisible by number of attention heads {num_heads}."
 
         self.embedding_size = embedding_size
         self.num_heads = num_heads
@@ -110,41 +123,46 @@ class MultiHeadSelfAttention(nn.Module):
         batch_size = X.shape[0]
 
         # Linear projections
-        # Output shape: (batch_size, num_patches + 1, embedding_size)
-        Q = self.queries(X)
-        K = self.keys(X)
-        V = self.values(X)
+        Q = self.queries(X)  # (batch_size, num_patches + 1, embedding_size)
+        K = self.keys(X)  # (batch_size, num_patches + 1, embedding_size)
+        V = self.values(X)  # (batch_size, num_patches + 1, embedding_size)
 
         # Split the embedding into self.num_heads different pieces
-        # Output shape: (batch_size, num_heads, num_patches + 1, head_dim)
-        Q = Q.view(batch_size, -1, self.num_heads,
-                   self.head_dim).permute(0, 2, 1, 3)
-        K = K.view(batch_size, -1, self.num_heads,
-                   self.head_dim).permute(0, 2, 1, 3)
-        V = V.view(batch_size, -1, self.num_heads,
-                   self.head_dim).permute(0, 2, 1, 3)
+        Q = Q.view(batch_size, -1, self.num_heads, self.head_dim).permute(
+            0, 2, 1, 3
+        )  # (batch_size, num_heads, num_patches + 1, head_dim)
+        K = K.view(batch_size, -1, self.num_heads, self.head_dim).permute(
+            0, 2, 1, 3
+        )  # (batch_size, num_heads, num_patches + 1, head_dim)
+        V = V.view(batch_size, -1, self.num_heads, self.head_dim).permute(
+            0, 2, 1, 3
+        )  # (batch_size, num_heads, num_patches + 1, head_dim)
 
         # Scaled dot-product attention
-        # Output shape: (batch_size, num_heads, num_patches + 1, num_patches + 1)
-        energy = torch.matmul(Q, K.permute(0, 1, 3, 2)) / self.head_dim ** 0.5
+        energy = torch.matmul(Q, K.permute(0, 1, 3, 2)) / self.head_dim**0.5
         attention = torch.softmax(energy, dim=-1)
-        attention = self.dropout(attention)
+        attention = self.dropout(
+            attention
+        )  # (batch_size, num_heads, num_patches + 1, num_patches + 1)
 
         # Save the attention map
-        # Output shape: (batch_size, num_heads, num_patches + 1, num_patches + 1)
-        self.attention_map = attention
+        self.attention_map = (
+            attention  # (batch_size, num_heads, num_patches + 1, num_patches + 1)
+        )
 
         # Compute the output
-        # Output shape: (batch_size, num_heads, num_patches + 1, head_dim)
-        out = torch.matmul(attention, V)
-        # Output shape: (batch_size, num_patches + 1, num_heads, head_dim)
-        out = out.permute(0, 2, 1, 3).contiguous()
-        # Output shape: (batch_size, num_patches + 1, embedding_size)
-        out = out.view(batch_size, -1, self.embedding_size)
+        out = torch.matmul(
+            attention, V
+        )  # (batch_size, num_heads, num_patches + 1, head_dim)
+        out = out.permute(
+            0, 2, 1, 3
+        ).contiguous()  # (batch_size, num_patches + 1, num_heads, head_dim)
+        out = out.view(
+            batch_size, -1, self.embedding_size
+        )  # (batch_size, num_patches + 1, embedding_size)
 
         # Final linear projection
-        # Output shape: (batch_size, num_patches + 1, embedding_size)
-        out = self.fc_out(out)
+        out = self.fc_out(out)  # (batch_size, num_patches + 1, embedding_size)
 
         return out
 
@@ -160,7 +178,9 @@ class VisionTransformerBlock(nn.Module):
         dropout (float, optional): Dropout rate. Default is 0.0.
     """
 
-    def __init__(self, embedding_size: int, num_heads: int, mlp_ratio: int, dropout: float = 0.0) -> None:
+    def __init__(
+        self, embedding_size: int, num_heads: int, mlp_ratio: int, dropout: float = 0.0
+    ) -> None:
         super(VisionTransformerBlock, self).__init__()
 
         self.embedding_size = embedding_size
@@ -169,15 +189,14 @@ class VisionTransformerBlock(nn.Module):
         self.dropout = dropout
 
         self.norm1 = nn.LayerNorm(embedding_size)
-        self.attention = MultiHeadSelfAttention(
-            embedding_size, num_heads, dropout)
+        self.attention = MultiHeadSelfAttention(embedding_size, num_heads, dropout)
         self.norm2 = nn.LayerNorm(embedding_size)
         self.mlp = nn.Sequential(
             nn.Linear(embedding_size, mlp_ratio * embedding_size),
             nn.GELU(),
             nn.Dropout(dropout),
             nn.Linear(mlp_ratio * embedding_size, embedding_size),
-            nn.Dropout(dropout)
+            nn.Dropout(dropout),
         )
 
     def forward(self, X: torch.Tensor) -> torch.Tensor:
@@ -251,18 +270,22 @@ class VisionTransformer(nn.Module):
         self.cls_token = nn.Parameter(torch.randn(1, 1, embedding_size))
 
         # Learnable position embeddings
-        self.position_embeddings = nn.Parameter(torch.randn(
-            1, (img_size // patch_size) ** 2 + 1, embedding_size))
+        self.position_embeddings = nn.Parameter(
+            torch.randn(1, (img_size // patch_size) ** 2 + 1, embedding_size)
+        )
 
         # Sequence of transformer blocks
-        self.transformer_blocks = nn.ModuleList([
-            VisionTransformerBlock(
-                embedding_size=embedding_size,
-                num_heads=num_heads,
-                mlp_ratio=mlp_ratio,
-                dropout=dropout,
-            ) for _ in range(num_layers)
-        ])
+        self.transformer_blocks = nn.ModuleList(
+            [
+                VisionTransformerBlock(
+                    embedding_size=embedding_size,
+                    num_heads=num_heads,
+                    mlp_ratio=mlp_ratio,
+                    dropout=dropout,
+                )
+                for _ in range(num_layers)
+            ]
+        )
 
         # Layer normalization and final fully connected layer
         self.norm = nn.LayerNorm(embedding_size)
@@ -279,35 +302,38 @@ class VisionTransformer(nn.Module):
             torch.Tensor: Output tensor of shape (batch_size, num_classes).
         """
         # Apply patch embedding
-        # Output shape: (batch_size, num_patches, embedding_size)
-        X = self.patch_embedding(X)
+        X = self.patch_embedding(X)  # (batch_size, num_patches, embedding_size)
 
         # Expand and concatenate the class token to the input
-        # Output shape: (batch_size, num_patches + 1, embedding_size)
         batch_size, num_patches, embedding_size = X.shape
         cls_tokens = self.cls_token.expand(batch_size, -1, -1)
-        X = torch.cat((cls_tokens, X), dim=1)
+        X = torch.cat(
+            (cls_tokens, X), dim=1
+        )  # (batch_size, num_patches + 1, embedding_size)
 
         # Add position embeddings
-        X = X + self.position_embeddings[:, :num_patches + 1, :]
+        X = X + self.position_embeddings[:, : num_patches + 1, :]
 
         # Pass through the stack of Transformer blocks
-        # Output shape: (batch_size, num_patches + 1, embedding_size)
         for transformer_block in self.transformer_blocks:
-            X = transformer_block(X)
+            X = transformer_block(X)  # (batch_size, num_patches + 1, embedding_size)
 
         # Get the classification token embedding
-        # Output shape: (batch_size, embedding_size)
-        X = X[:, 0]
+        X = X[:, 0]  # (batch_size, embedding_size)
 
         # Normalize and pass through fully connected layer
-        # Output shape: (batch_size, num_classes)
         X = self.norm(X)
-        X = self.fc(X)
+        X = self.fc(X)  # (batch_size, num_classes)
 
         return X
 
-    def plot_attention_maps(self, X: torch.Tensor, save_path: str, transform: Optional[transforms.Compose] = None, interpolation: Optional[str] = None) -> None:
+    def plot_attention_maps(
+        self,
+        X: torch.Tensor,
+        save_path: str,
+        transform: Optional[transforms.Compose] = None,
+        interpolation: Optional[str] = None,
+    ) -> None:
         """
         Plot the original images along with attention maps for each layer in the Vision Transformer.
 
@@ -317,20 +343,20 @@ class VisionTransformer(nn.Module):
             transform (Optional[torchvision.transforms.Compose]): A torchvision.transforms.Compose object for transforming the input images. Default is None.
             interpolation (Optional[str]): Interpolation method for displaying attention maps. Default is None.
         """
-        assert self.embedding_size % self.num_heads == 0, f"Embedding size {
-            self.embedding_size} is not divisible by number of attention heads {self.num_heads}."
-        assert self.img_size % self.patch_size == 0, f"Image size {
-            self.img_size} is not divisible by patch size {self.patch_size}."
+        assert (
+            self.embedding_size % self.num_heads == 0
+        ), f"Embedding size {self.embedding_size} is not divisible by number of attention heads {self.num_heads}."
+        assert (
+            self.img_size % self.patch_size == 0
+        ), f"Image size {self.img_size} is not divisible by patch size {self.patch_size}."
 
         # Extract mean and std from transforms.Normalize
         mean, std = None, None
         if transform is not None:
             for t in transform.transforms:
                 if isinstance(t, transforms.Normalize):
-                    mean = torch.tensor(t.mean).unsqueeze(
-                        1).unsqueeze(2).to(X.device)
-                    std = torch.tensor(t.std).unsqueeze(
-                        1).unsqueeze(2).to(X.device)
+                    mean = torch.tensor(t.mean).unsqueeze(1).unsqueeze(2).to(X.device)
+                    std = torch.tensor(t.std).unsqueeze(1).unsqueeze(2).to(X.device)
                     break
 
         # Extract batch size and number of patches in one dimension
@@ -338,14 +364,17 @@ class VisionTransformer(nn.Module):
         num_patches_x = self.img_size // self.patch_size
 
         # Get the attention maps for the first class token only
-        attention_maps = [block.attention.attention_map[:, :, 0, 1:].reshape(
-            batch_size, -1, num_patches_x, num_patches_x) for block in self.transformer_blocks]
+        attention_maps = [
+            block.attention.attention_map[:, :, 0, 1:].reshape(
+                batch_size, -1, num_patches_x, num_patches_x
+            )
+            for block in self.transformer_blocks
+        ]
 
         # Iterate over the attention layers
         for layer_i, layer_attention in enumerate(attention_maps):
             plt.figure(figsize=(self.num_heads * 2, batch_size * 2))
-            plt.suptitle(
-                f"Layer {len(self.transformer_blocks) - 1}", fontsize=16)
+            plt.suptitle(f"Layer {len(self.transformer_blocks) - 1}", fontsize=16)
 
             num_rows = batch_size
             num_cols = self.num_heads + 1
@@ -359,18 +388,20 @@ class VisionTransformer(nn.Module):
                 plt.subplot(num_rows, num_cols, batch_i * num_cols + 1)
                 plt.imshow(image.transpose(1, 2, 0))
                 plt.title(f"Image {batch_i + 1}")
-                plt.axis('off')
+                plt.axis("off")
 
             # Plot attention maps for each head with labels
             for head_i in range(self.num_heads):
                 for batch_i in range(batch_size):
-                    plt.subplot(num_rows, num_cols, batch_i *
-                                num_cols + head_i + 2)
-                    plt.imshow(layer_attention[batch_i, head_i].cpu().detach(
-                    ).numpy(), cmap='viridis', interpolation=interpolation)
+                    plt.subplot(num_rows, num_cols, batch_i * num_cols + head_i + 2)
+                    plt.imshow(
+                        layer_attention[batch_i, head_i].cpu().detach().numpy(),
+                        cmap="viridis",
+                        interpolation=interpolation,
+                    )
                     if batch_i == 0:  # Only label the first row
                         plt.title(f"Head {head_i + 1}")
-                    plt.axis('off')
+                    plt.axis("off")
 
             # Adjust layout to make room for the title
             plt.tight_layout(rect=[0, 0, 1, 0.98])

@@ -1,3 +1,8 @@
+"""
+This module provides utility functions for image processing. It includes functions to:
+1. Convert a grayscale image to RGB format if necessary.
+"""
+
 from PIL import Image
 
 
