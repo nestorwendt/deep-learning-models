@@ -1,8 +1,4 @@
 """
-This module defines the transformation pipeline and prepares the dataset for training
-and validation using the ImageNet dataset. It includes functions to:
-1. Define the transformation pipeline for the dataset.
-2. Prepare the training and validation datasets.
 """
 
 from typing import Tuple
@@ -31,10 +27,7 @@ def get_transform(img_size: int) -> transforms.Compose:
 
 
 def prepare_dataloaders(
-    img_size: int,
-    batch_size: int,
-    num_workers: int,
-    data_root: str
+    img_size: int, batch_size: int, num_workers: int, data_root: str
 ) -> Tuple[DataLoader, DataLoader]:
     """
     Prepare the training and validation datasets and dataloaders using ImageFolder.

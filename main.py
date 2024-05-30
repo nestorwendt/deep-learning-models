@@ -1,45 +1,36 @@
-import os
 import torch
 from torch import nn, optim
 from tqdm import tqdm
-from datetime import datetime
 
-from models.vision_transformer import VisionTransformer
-from datasets import imagenet
+from utils.system import calculate_num_workers, save_model
+from datasets import imagenette
+from models.vit import make_vit_base
 
 
 def main():
+
+    num_classes = 10
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    num_workers = calculate_num_workers()
+
     # Hyperparameters
     img_size = 224
-    patch_size = 32  # 16
-    num_classes = 10  # 1000
-    embedding_size = 144  # 768
-    num_heads = 6  # 12
-    num_layers = 12
-    mlp_ratio = 4
-    in_channels = 3
+    patch_size = 32
     dropout = 0.0
     batch_size = 32
     learning_rate = 1e-4
     num_epochs = 50
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    num_workers = os.cpu_count() if os.cpu_count() is not None else 0
 
-    # Initialize the Vision Transformer model
-    model = VisionTransformer(
+    # Initialize the model
+    model = make_vit_base(
         img_size=img_size,
         patch_size=patch_size,
         num_classes=num_classes,
-        embedding_size=embedding_size,
-        num_heads=num_heads,
-        num_layers=num_layers,
-        mlp_ratio=mlp_ratio,
-        in_channels=in_channels,
         dropout=dropout,
     ).to(device)
 
     # Prepare dataloaders
-    train_dataloader, val_dataloader = imagenet.prepare_dataloaders(
+    train_dataloader, val_dataloader = imagenette.prepare_dataloaders(
         img_size=img_size,
         batch_size=batch_size,
         num_workers=num_workers,
@@ -102,10 +93,7 @@ def main():
                     )
 
     # Save the model after training
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    model_path = os.path.join("checkpoints", f"{timestamp}.pth")
-    os.makedirs("checkpoints", exist_ok=True)
-    torch.save(model.state_dict(), model_path)
+    save_model(model, "checkpoints")
 
 
 if __name__ == "__main__":

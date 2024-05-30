@@ -1,8 +1,4 @@
 """
-This module defines the transformation pipeline and prepares the dataset for training
-and validation using the Imagenette dataset. It includes functions to:
-1. Define the transformation pipeline for the dataset.
-2. Prepare the training and validation datasets.
 """
 
 from typing import Tuple

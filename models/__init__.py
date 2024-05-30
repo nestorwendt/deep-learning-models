@@ -1,8 +1,8 @@
 """
-The `models` package provides implementations of various neural network architectures for computer vision tasks.
+The `models` package provides implementations of various neural network architectures.
 
 Submodules:
-- `vision_transformer`: Implementation of the Vision Transformer (ViT) model.
+- `ViT`: Implementation of the Vision Transformer (ViT) model.
 """
 
-from .vision_transformer import VisionTransformer
+from .vit import ViT
