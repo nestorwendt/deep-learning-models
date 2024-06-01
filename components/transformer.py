@@ -20,9 +20,10 @@ class MultiHeadSelfAttention(nn.Module):
     ) -> None:
         super(MultiHeadSelfAttention, self).__init__()
 
-        assert (
-            embedding_size % num_heads == 0
-        ), f"Embedding size {embedding_size} is not divisible by number of attention heads {num_heads}."
+        if embedding_size % num_heads != 0:
+            raise ValueError(
+                f"Embedding size {embedding_size} is not divisible by number of attention heads {num_heads}."
+            )
 
         self.embedding_size = embedding_size
         self.num_heads = num_heads

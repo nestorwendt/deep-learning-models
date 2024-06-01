@@ -25,9 +25,10 @@ class PatchEmbedding(nn.Module):
     ) -> None:
         super(PatchEmbedding, self).__init__()
 
-        assert (
-            img_size % patch_size == 0
-        ), f"Image size {img_size} is not divisible by patch size {patch_size}."
+        if img_size % patch_size != 0:
+            raise ValueError(
+                f"Image size {img_size} is not divisible by patch size {patch_size}."
+            )
 
         self.img_size = img_size
         self.patch_size = patch_size
@@ -53,9 +54,10 @@ class PatchEmbedding(nn.Module):
         """
         batch_size, channels, height, width = X.shape
 
-        assert (
-            height == width
-        ), f"Expected square image, but got height {height} and width {width}."
+        if height != width:
+            raise ValueError(
+                f"Expected square image, but got height {height} and width {width}."
+            )
 
         # Apply convolution to create patch embeddings
         X = self.conv(
