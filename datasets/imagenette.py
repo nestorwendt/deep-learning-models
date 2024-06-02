@@ -18,6 +18,12 @@ def get_transform(img_size: int) -> transforms.Compose:
     """
     return transforms.Compose(
         [
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomRotation(10),
+            transforms.ColorJitter(
+                brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1
+            ),
+            transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),
             transforms.Resize((img_size, img_size)),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
@@ -59,7 +65,7 @@ def prepare_dataloaders(
         root=data_root, transform=transform, split="val", download=download
     )
     val_dataloader: DataLoader = DataLoader(
-        val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers
+        val_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers
     )
 
     return train_dataloader, val_dataloader

@@ -21,6 +21,7 @@ class ViT(nn.Module):
         mlp_ratio (int): Expansion ratio for the MLP.
         in_channels (int, optional): Number of input channels. Default is 3.
         dropout (float, optional): Dropout rate. Default is 0.0.
+        num_registers (int, optional): Number of register tokens. Default is 0.
     """
 
     def __init__(
@@ -34,6 +35,7 @@ class ViT(nn.Module):
         mlp_ratio: int,
         in_channels: int = 3,
         dropout: float = 0.0,
+        num_registers: int = 0,
     ) -> None:
         super(ViT, self).__init__()
 
@@ -46,6 +48,7 @@ class ViT(nn.Module):
         self.mlp_ratio = mlp_ratio
         self.in_channels = in_channels
         self.dropout = dropout
+        self.num_registers = num_registers
 
         self.num_patches = (img_size // patch_size) ** 2
 
@@ -60,9 +63,14 @@ class ViT(nn.Module):
         # Learnable classification token
         self.cls_token = nn.Parameter(torch.randn(1, 1, embedding_size))
 
+        # Register tokens
+        self.register_tokens = nn.Parameter(
+            torch.randn(1, num_registers, embedding_size)
+        )
+
         # Learnable position embeddings
         self.position_embeddings = PositionalEmbedding(
-            self.num_patches + 1, embedding_size
+            self.num_patches + 1 + num_registers, embedding_size
         )
 
         # Sequence of transformer blocks
@@ -94,20 +102,29 @@ class ViT(nn.Module):
         """
         # Apply patch embedding
         X = self.patch_embedding(X)  # (batch_size, num_patches, embedding_size)
+        batch_size, num_patches, embedding_size = X.shape
+
+        # Expand and concatenate the register tokens to the input
+        if self.register_tokens is not None:
+            register_tokens = self.register_tokens.expand(batch_size, -1, -1)
+            X = torch.cat(
+                (register_tokens, X), dim=1
+            )  # (batch_size, num_patches + num_registers, embedding_size)
 
         # Expand and concatenate the class token to the input
-        batch_size, num_patches, embedding_size = X.shape
         cls_tokens = self.cls_token.expand(batch_size, -1, -1)
         X = torch.cat(
             (cls_tokens, X), dim=1
-        )  # (batch_size, num_patches + 1, embedding_size)
+        )  # (batch_size, num_patches + 1 + num_registers, embedding_size)
 
         # Add position embeddings
         X = X + self.position_embeddings(X)
 
         # Pass through the stack of Transformer blocks
         for transformer_block in self.transformer_blocks:
-            X = transformer_block(X)  # (batch_size, num_patches + 1, embedding_size)
+            X = transformer_block(
+                X
+            )  # (batch_size, num_patches + 1 + num_registers, embedding_size)
 
         # Get the classification token embedding
         X = X[:, 0]  # (batch_size, embedding_size)
@@ -120,7 +137,11 @@ class ViT(nn.Module):
 
 
 def make_vit_base(
-    img_size: int, patch_size: int, num_classes: int, dropout: float = 0.1
+    img_size: int,
+    patch_size: int,
+    num_classes: int,
+    dropout: float = 0.1,
+    num_registers: int = 0,
 ) -> ViT:
     """
     Constructs a ViT-B model.
@@ -130,6 +151,7 @@ def make_vit_base(
         patch_size (int): Size of each patch (assumed to be square).
         num_classes (int): Number of output classes.
         dropout (float, optional): Dropout rate. Default is 0.1.
+        num_registers (int, optional): Number of register tokens. Default is 0.
 
     Returns:
         ViT: A Vision Transformer model.
@@ -144,11 +166,16 @@ def make_vit_base(
         mlp_ratio=4,
         in_channels=3,
         dropout=dropout,
+        num_registers=num_registers,
     )
 
 
 def make_vit_large(
-    img_size: int, patch_size: int, num_classes: int, dropout: float = 0.1
+    img_size: int,
+    patch_size: int,
+    num_classes: int,
+    dropout: float = 0.1,
+    num_registers: int = 0,
 ) -> ViT:
     """
     Constructs a ViT-L model.
@@ -158,6 +185,7 @@ def make_vit_large(
         patch_size (int): Size of each patch (assumed to be square).
         num_classes (int): Number of output classes.
         dropout (float, optional): Dropout rate. Default is 0.1.
+        num_registers (int, optional): Number of register tokens. Default is 0.
 
     Returns:
         ViT: A Vision Transformer model.
@@ -172,11 +200,16 @@ def make_vit_large(
         mlp_ratio=4,
         in_channels=3,
         dropout=dropout,
+        num_registers=num_registers,
     )
 
 
 def make_vit_huge(
-    img_size: int, patch_size: int, num_classes: int, dropout: float = 0.1
+    img_size: int,
+    patch_size: int,
+    num_classes: int,
+    dropout: float = 0.1,
+    num_registers: int = 0,
 ) -> ViT:
     """
     Constructs a ViT-H model.
@@ -186,6 +219,7 @@ def make_vit_huge(
         patch_size (int): Size of each patch (assumed to be square).
         num_classes (int): Number of output classes.
         dropout (float, optional): Dropout rate. Default is 0.1.
+        num_registers (int, optional): Number of register tokens. Default is 0.
 
     Returns:
         ViT: A Vision Transformer model.
@@ -200,4 +234,5 @@ def make_vit_huge(
         mlp_ratio=4,
         in_channels=3,
         dropout=dropout,
+        num_registers=num_registers,
     )

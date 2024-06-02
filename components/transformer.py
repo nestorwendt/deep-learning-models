@@ -41,54 +41,60 @@ class MultiHeadSelfAttention(nn.Module):
         Forward pass for the multi-head self-attention mechanism.
 
         Args:
-            X (torch.Tensor): Input tensor of shape (batch_size, num_patches + 1, embedding_size).
+            X (torch.Tensor): Input tensor of shape (batch_size, num_patches + 1 + num_registers, embedding_size).
 
         Returns:
-            torch.Tensor: Output tensor of shape (batch_size, num_patches + 1, embedding_size).
+            torch.Tensor: Output tensor of shape (batch_size, num_patches + 1 + num_registers, embedding_size).
         """
         batch_size = X.shape[0]
 
         # Linear projections
-        Q = self.queries(X)  # (batch_size, num_patches + 1, embedding_size)
-        K = self.keys(X)  # (batch_size, num_patches + 1, embedding_size)
-        V = self.values(X)  # (batch_size, num_patches + 1, embedding_size)
+        Q = self.queries(
+            X
+        )  # (batch_size, num_patches + 1 + num_registers, embedding_size)
+        K = self.keys(
+            X
+        )  # (batch_size, num_patches + 1 + num_registers, embedding_size)
+        V = self.values(
+            X
+        )  # (batch_size, num_patches + 1 + num_registers, embedding_size)
 
         # Split the embedding into self.num_heads different pieces
         Q = Q.view(batch_size, -1, self.num_heads, self.head_dim).permute(
             0, 2, 1, 3
-        )  # (batch_size, num_heads, num_patches + 1, head_dim)
+        )  # (batch_size, num_heads, num_patches + 1 + num_registers, head_dim)
         K = K.view(batch_size, -1, self.num_heads, self.head_dim).permute(
             0, 2, 1, 3
-        )  # (batch_size, num_heads, num_patches + 1, head_dim)
+        )  # (batch_size, num_heads, num_patches + 1 + num_registers, head_dim)
         V = V.view(batch_size, -1, self.num_heads, self.head_dim).permute(
             0, 2, 1, 3
-        )  # (batch_size, num_heads, num_patches + 1, head_dim)
+        )  # (batch_size, num_heads, num_patches + 1 + num_registers, head_dim)
 
         # Scaled dot-product attention
         energy = torch.matmul(Q, K.permute(0, 1, 3, 2)) / self.head_dim**0.5
         attention = torch.softmax(energy, dim=-1)
         attention = self.dropout(
             attention
-        )  # (batch_size, num_heads, num_patches + 1, num_patches + 1)
+        )  # (batch_size, num_heads, num_patches + 1 + num_registers, num_patches + 1 + num_registers)
 
         # Save the attention map
-        self.attention_map = (
-            attention  # (batch_size, num_heads, num_patches + 1, num_patches + 1)
-        )
+        self.attention_map = attention  # (batch_size, num_heads, num_patches + 1 + num_registers, num_patches + 1 + num_registers)
 
         # Compute the output
         out = torch.matmul(
             attention, V
-        )  # (batch_size, num_heads, num_patches + 1, head_dim)
+        )  # (batch_size, num_heads, num_patches + 1 + num_registers, head_dim)
         out = out.permute(
             0, 2, 1, 3
-        ).contiguous()  # (batch_size, num_patches + 1, num_heads, head_dim)
+        ).contiguous()  # (batch_size, num_patches + 1 + num_registers, num_heads, head_dim)
         out = out.view(
             batch_size, -1, self.embedding_size
-        )  # (batch_size, num_patches + 1, embedding_size)
+        )  # (batch_size, num_patches + 1 + num_registers, embedding_size)
 
         # Final linear projection
-        out = self.fc_out(out)  # (batch_size, num_patches + 1, embedding_size)
+        out = self.fc_out(
+            out
+        )  # (batch_size, num_patches + 1 + num_registers, embedding_size)
 
         return out
 
@@ -130,10 +136,10 @@ class TransformerBlock(nn.Module):
         Forward pass for the Transformer block.
 
         Args:
-            X (torch.Tensor): Input tensor of shape (batch_size, num_patches + 1, embedding_size).
+            X (torch.Tensor): Input tensor of shape (batch_size, num_patches + 1 + num_registers, embedding_size).
 
         Returns:
-            torch.Tensor: Output tensor of shape (batch_size, num_patches + 1, embedding_size).
+            torch.Tensor: Output tensor of shape (batch_size, num_patches + 1 + num_registers, embedding_size).
         """
         # Compute multi-head self-attention with a residual connection
         X = X + self.attention(self.norm1(X))

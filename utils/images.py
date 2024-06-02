@@ -86,6 +86,8 @@ def get_attention_maps(model: nn.Module) -> torch.Tensor:
 def plot_attention_maps(
     batch: torch.Tensor,
     attention_maps: torch.Tensor,
+    query_idx: int = 0,
+    num_registers: int = 0,
     save_path: Optional[str] = None,
     imshow_interpolation: Optional[str] = None,
 ) -> None:
@@ -95,6 +97,8 @@ def plot_attention_maps(
     Args:
         batch (torch.Tensor): The batch of images.
         attention_maps (torch.Tensor): The attention maps for the batch.
+        query_idx (int, optional): The index of the query to visualize. Defaults to 0.
+        num_registers (int, optional): The number of token registers the model has. Defaults to 0.
         save_path (str, optional): Path to save the images. If None, the images will be shown. Defaults to None.
         imshow_interpolation (str, optional): Interpolation method for imshow. Defaults to None.
     """
@@ -125,20 +129,20 @@ def plot_attention_maps(
         for block_idx in range(num_blocks):
             block_maps = attention_maps[image_idx, block_idx]
             for head_idx in range(num_heads):
-                attention_map = block_maps[head_idx, 0, 1:]
+                attention_map = block_maps[head_idx, query_idx, 1+num_registers:]
                 num_patches_x = int(np.sqrt(attention_map.numel()))
                 attention_map = attention_map.reshape(num_patches_x, num_patches_x)
 
                 attention_map_ax = axes[block_idx + 1, head_idx]
                 attention_map_ax.imshow(
-                    attention_map, cmap="viridis", interpolation="none"
+                    attention_map, cmap="viridis", interpolation=imshow_interpolation
                 )
                 attention_map_ax.axis("off")
                 attention_map_ax.set_title(f"Block {block_idx} Head {head_idx}")
 
         plt.tight_layout()
         if save_path:
-            file_name = f"image_{image_idx}.png"
+            file_name = f"image_{image_idx}_query_{query_idx}.png"
             file_path = os.path.join(save_path, file_name)
             plt.savefig(file_path)
         else:
