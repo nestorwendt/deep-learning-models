@@ -4,6 +4,6 @@ __pycache__
 data/*
 logs/*
 checkpoints/*
-experiments/*
+temp/*
 
 !.gitkeep
